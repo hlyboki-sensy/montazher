@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Завдання до відео</title>
+<!-- Ті самі шрифти, що й у рендері субтитрів, — щоб превʼю не брехало. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Comforter+Brush&family=Great+Vibes&family=Montserrat:wght@800&family=Inter:wght@700&family=Playfair+Display:ital,wght@0,800;1,500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#101010; --panel:#1A1A1A; --line:#2A2A2A;
+    --text:#F5F5F5; --muted:#8A8A8A; --accent:#660033; --accent-soft:#B2185E;
+    --on-accent:#101010;          /* текст на жовтій кнопці */
+    --accent-ink:#660033;         /* жовтий, яким пишемо по тлу */
+    --accent-wash:rgba(255,210,14,.08);
+    --ring:rgba(255,210,14,.14);
+    --err:#FF8A7A;
+    --shadow:none;
+    --display:Didot,"Didot LT STD","Bodoni 72",Georgia,serif;
+    --body:"Helvetica Neue",Arial,sans-serif;
+  }
+  /* Світла тема. Жовтий на білому не читається як ТЕКСТ, тож для написів
+     беремо приглушену вохру, а сам жовтий лишається заливкою кнопок і рамок. */
+  :root[data-theme="light"]{
+    --bg:#FAF8F3; --panel:#FFFFFF; --line:#E4DED2;
+    --text:#15140F; --muted:#78736A; --accent:#660033; --accent-soft:#B2185E;
+    --on-accent:#15140F;
+    --accent-ink:#8A6A00;
+    --accent-wash:rgba(255,210,14,.16);
+    --ring:rgba(138,106,0,.16);
+    --err:#B3402E;
+    --shadow:0 1px 2px rgba(21,20,15,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--body);transition:background .18s,color .18s;
+       font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:820px;margin:0 auto;padding:72px 40px 96px}
+  header{margin-bottom:64px;padding-bottom:40px;border-bottom:1px solid var(--line)}
+  .kicker{font-size:12px;letter-spacing:.34em;text-transform:uppercase;color:var(--muted);margin:0 0 14px}
+  h1{font-family:var(--display);font-style:italic;font-weight:700;font-size:64px;line-height:1.05;margin:0 0 14px;letter-spacing:-.01em}
+  .lede{color:var(--muted);margin:0;max-width:52ch}
+  section{margin:0 0 56px;padding:0 0 0 96px;position:relative;border:none;counter-increment:sec}
+  section::before{content:counter(sec,decimal-leading-zero);position:absolute;left:0;top:2px;
+    font-family:var(--display);font-style:italic;font-size:44px;line-height:1;color:var(--accent-ink);opacity:.5}
+  body{counter-reset:sec}
+  h2{font-family:var(--display);font-style:italic;font-weight:700;font-size:32px;margin:0 0 10px;letter-spacing:-.015em}
+  .hint{color:var(--muted);font-size:14px;margin:0 0 20px;max-width:56ch}
+  label{display:block;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 9px}
+  select,input[type=text],input[type=number],textarea{
+    width:100%;background:var(--panel);color:var(--text);border:1px solid var(--line);
+    border-radius:5px;padding:13px 15px;font:inherit;font-size:15px}
+  textarea{min-height:88px;resize:vertical;line-height:1.55}
+  select:focus,input:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+  .field{margin-bottom:24px}
+  .field:last-child{margin-bottom:0}
+  .row{display:flex;gap:18px;flex-wrap:wrap}
+  .row .field{flex:1 1 200px}
+  .checks{display:flex;flex-direction:column;gap:2px}
+  .check{display:flex;align-items:flex-start;gap:13px;padding:11px 14px;border-radius:5px;cursor:pointer;transition:background .12s}
+  .check:hover{background:var(--panel)}
+  .check input{margin:3px 0 0;width:17px;height:17px;accent-color:var(--accent);flex:none;cursor:pointer}
+  .check .txt{flex:1}
+  .check .mark{font-size:12px;color:var(--muted);margin-left:8px;white-space:nowrap}
+  .check.wip .mark{color:var(--accent-ink)}
+  .inline{display:inline-flex;align-items:center;gap:9px;margin-left:8px}
+  .inline input{width:74px;padding:5px 9px;font-size:14px;text-align:center}
+  .pills{display:flex;gap:9px;flex-wrap:wrap}
+  .pill input{position:absolute;opacity:0;pointer-events:none}
+  .pill span{display:block;padding:10px 19px;border:1px solid var(--line);border-radius:999px;
+             background:var(--panel);cursor:pointer;font-size:15px;transition:.12s}
+  .pill input:checked + span{border-color:var(--accent);color:var(--accent-ink);background:var(--accent-wash)}
+  /* Кнопка стоїть у самому кінці сторінки, а не висить над текстом: липкою
+     вона затуляла останні рядки того розділу, який саме читаєш. */
+  footer{padding:8px 0 0;margin-top:24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+  button{background:var(--accent);color:var(--on-accent);border:none;border-radius:999px;
+         padding:16px 40px;font:inherit;font-weight:700;font-size:16px;cursor:pointer;transition:.12s}
+  button:hover{background:var(--accent-soft)}
+  button:disabled{opacity:.4;cursor:default}
+  .status{font-size:14px;color:var(--muted)}
+  /* Підпис автора: тихий, не сперечається з формою, але завжди на місці. */
+  .author{margin-top:44px;padding-top:20px;border-top:1px solid var(--line, rgba(128,128,128,.22));
+          display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 22px;font-size:13px;
+          color:var(--muted)}
+  .author .by{margin:0}
+  .author .by strong{color:var(--text);font-weight:600}
+  .author .links{margin:0;display:flex;gap:16px}
+  .author a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid transparent}
+  .author a:hover{border-bottom-color:currentColor}
+  .author .note{margin:0;flex-basis:100%;opacity:.8}
+  .status.ok{color:var(--accent-ink)}
+  .status.err{color:var(--err)}
+  code{background:var(--panel);padding:2px 7px;border-radius:4px;font-size:.88em;color:var(--accent-ink)}
+  .ghost{background:transparent;color:var(--text);border:1px solid var(--line);border-radius:999px;
+         padding:12px 26px;font-weight:400;font-size:15px}
+  .ghost:hover{background:var(--panel);border-color:var(--accent)}
+  .files{list-style:none;margin:0 0 16px;padding:0;display:flex;flex-direction:column;gap:7px}
+  .files li{display:flex;align-items:center;gap:13px;background:var(--panel);
+            border:1px solid var(--line);border-radius:5px;padding:11px 15px;font-size:15px}
+  .files .num{color:var(--accent-ink);font-family:var(--display);font-style:italic;font-size:19px;min-width:20px}
+  .files .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .files button{background:none;border:none;color:var(--muted);font-size:19px;
+                padding:2px 7px;cursor:pointer;line-height:1}
+  .files button:hover{color:var(--accent-ink)}
+  .files .move{font-size:17px;color:var(--accent-ink);opacity:.75}
+  .files .move:hover{opacity:1}
+  .files .num{font-weight:700}
+  .empty{color:var(--muted);font-size:14px;font-style:italic;margin:0 0 16px}
+  .btns{display:flex;gap:10px;flex-wrap:wrap}
+  .ghost.quiet{color:var(--muted)}
+  .ghost.quiet:hover{color:var(--text)}
+  .cat{list-style:none;margin:0 0 16px;padding:0;display:flex;flex-direction:column;gap:9px}
+  .cat li{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:14px 16px}
+  .cat .head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .cat .nm{flex:1;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cat .cr{color:var(--muted);font-size:12px;white-space:nowrap}
+  .cat button{background:none;border:none;color:var(--muted);font-size:19px;padding:2px 7px;cursor:pointer;line-height:1}
+  .cat button:hover{color:var(--accent-ink)}
+  .cat input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:4px;
+             padding:9px 12px;color:var(--text);font:inherit;font-size:14px}
+  .cat .lbl{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 7px}
+  /* Стрічка стилів іде на всю ширину вікна, а не по колонці тексту: на
+     десктопі колонка вузька, і в неї влазило півтори картки. Сам ряд стоїть
+     по центру полотна, тож нові стилі розходитимуться від середини до країв. */
+  .looksWrap{position:relative;z-index:1;margin:6px calc(50% - 50vw) 0}
+  .looks{display:flex;gap:14px;flex-wrap:nowrap;overflow-x:auto;scroll-behavior:smooth;
+         /* safe center: коли картки влазять — ряд стоїть по центру полотна;
+            коли ні — звичайна прокрутка, і «safe» не дає обрізати перший край. */
+         scroll-snap-type:x mandatory;justify-content:safe center;padding:2px 22px 6px;
+         scrollbar-width:none;-ms-overflow-style:none}
+  .looks::-webkit-scrollbar{display:none}
+  .look{flex:0 0 196px;position:relative;scroll-snap-align:start;
+        /* глобальне правило для label ставить капс і розрядку — тут вони заважають */
+        text-transform:none;letter-spacing:normal;color:var(--text);font-size:16px;margin:0}
+  /* Стрілки — під стрічкою, вирівняні по колонці тексту. Над картками вони
+     затуляли саме те превʼю, яке треба роздивитися. */
+  .navRow{display:flex;gap:10px;justify-content:center;padding:16px 22px 0}
+  .nav{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);
+       background:transparent;color:var(--muted);font-size:16px;line-height:1;padding:0;
+       display:none;place-items:center;cursor:pointer;transition:.12s}
+  .nav:hover{border-color:var(--accent);color:var(--accent-ink)}
+  .nav.on{display:grid}
+  .look input{position:absolute;opacity:0;pointer-events:none}
+  .look span.card{display:block;border:1px solid var(--line);border-radius:7px;overflow:hidden;
+                  background:var(--panel);cursor:pointer;transition:.12s;position:relative;z-index:1}
+  /* Превʼю стилю: те саме нейтральне тло, що й у рендері, і той самий набір
+     шрифтів. Колір кольорових слів береться з --pick, тож міняється миттєво. */
+  /* Текст сидить на другій третині кадру, а не посередині: так він лягає на
+     воду, де темніше, і затемнення під ним читається природно. */
+  .look .pv{position:relative;display:flex;flex-direction:column;align-items:center;
+            justify-content:flex-end;padding-bottom:26%;gap:2px;width:100%;aspect-ratio:4/5;
+            text-align:center;overflow:hidden;
+            background:#1B140E url("preview-bg.jpg") center/cover no-repeat}
+  /* Scrim: притлумлюємо саме смугу, де стоїть текст, лишаючи небо й воду
+     впізнаваними. Без нього напис сідає на світлу бруківку і гасне. */
+  .look .pv::before{content:'';position:absolute;inset:0;
+     background:linear-gradient(180deg,rgba(6,8,12,.06) 0%,rgba(6,8,12,.12) 38%,
+                rgba(6,8,12,.55) 58%,rgba(6,8,12,.70) 74%,rgba(6,8,12,.70) 88%,
+                rgba(6,8,12,.42) 100%)}
+  .look .pv b{position:relative}
+  .look .pv b{display:block;font-weight:400;line-height:1.05}
+  /* Кожна нова репліка проявляється — саме так вона поводиться в ролику. */
+  .look .pv.playing b{animation:cueIn .26s ease-out both}
+  .look .pv.playing b:nth-child(2){animation-delay:.07s}
+  @keyframes cueIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion: reduce){
+    .look .pv.playing b{animation:none}
+  }
+  /* Той самий набір станів, що й у рендері: ореол, сама тінь, нічого. */
+  [data-edge="halo"] .look .pv b{filter:drop-shadow(0 0 1px rgba(0,0,0,.95))
+        drop-shadow(0 0 3px rgba(0,0,0,.8)) drop-shadow(0 2px 6px rgba(0,0,0,.5))}
+  [data-edge="shadow"] .look .pv b{filter:drop-shadow(0 2px 5px rgba(0,0,0,.55))}
+  [data-edge="none"] .look .pv b{filter:none}
+  .look .pv .t1{color:var(--pick,#660033)}
+  .look .pv .t2{color:#FFF}
+  .look .pv .calli{font-family:"Great Vibes",cursive}
+  .look .pv .brush{font-family:"Comforter Brush",cursive}
+  .look .pv .sans{font-family:Montserrat,var(--body);font-weight:800;text-transform:uppercase;
+                  letter-spacing:.01em}
+  .look .pv .plain{font-family:Inter,var(--body);font-weight:700;letter-spacing:-.01em}
+  .look .pv .serifIt{font-family:"Playfair Display",var(--display);font-style:italic;font-weight:500}
+  .look .pv .serif{font-family:"Playfair Display",var(--display);font-weight:800;
+                   text-transform:uppercase;letter-spacing:.04em}
+  .look .pv .big{font-size:40px}
+  .look .pv .big.sans{font-size:29px}
+  .look .pv .mid{font-size:30px}
+  .look .pv .mid.sans{font-size:17px}
+  .look .pv .mid.serifIt{font-size:29px}
+  .look .pv .small.serif{font-size:16px}
+  .look .pv .small{font-size:15px}
+  .look .pv .plain{font-size:13px}
+  .look .nm{display:block;padding:13px 14px 14px;font-family:var(--display);font-style:italic;font-size:19px}
+  .look .ds{display:block;padding:0 14px 14px;font-size:12.5px;color:var(--muted);
+            line-height:1.42;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;
+            overflow:hidden}
+  .look span.card:hover{border-color:var(--muted)}
+  .look input:checked + span.card{border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+  .look input:checked + span.card .nm{color:var(--accent-ink)}
+  /* Кольори — одним рядком голими кружечками: назви тут нічого не додавали,
+     а рядок розривали навпіл. Що саме за колір, видно з самого кружечка. */
+  .swatches{display:flex;gap:12px;flex-wrap:nowrap;align-items:center}
+  .sw{position:relative;margin:0;line-height:0}
+  .sw input{position:absolute;opacity:0;pointer-events:none}
+  .sw i{display:block;width:30px;height:30px;border-radius:50%;cursor:pointer;
+        box-shadow:inset 0 0 0 1px rgba(255,255,255,.28);transition:.12s;
+        outline:2px solid transparent;outline-offset:3px}
+  .sw i:hover{transform:scale(1.08)}
+  .sw input:checked + i{outline-color:var(--accent)}
+  /* «Обрати» — той самий кружечок, тільки він відкриває піпетку. */
+  .own{display:inline-flex;align-items:center;gap:9px;text-transform:none;
+       letter-spacing:normal;color:var(--muted);font-size:14px;margin:0;
+       padding-left:4px;cursor:pointer}
+  /* Кільце навколо піпетки малюємо тінню, а не outline: Chrome для
+     input[type=color] промальовує власний контрол і outline-color ігнорує. */
+  .own input[type=color]{width:30px;height:30px;padding:0;border:none;border-radius:50%;
+                         background:none;cursor:pointer;transition:.12s;
+                         box-shadow:inset 0 0 0 1px rgba(255,255,255,.28)}
+  .own.on input[type=color]{box-shadow:inset 0 0 0 1px rgba(255,255,255,.28),
+                                       0 0 0 2px var(--bg), 0 0 0 4px var(--accent)}
+  .own.on span{color:var(--text)}
+  .own input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+  .own input[type=color]::-webkit-color-swatch{border:none;border-radius:50%}
+  .theme{position:fixed;top:24px;right:24px;z-index:9;display:flex;align-items:center;gap:8px;
+         background:var(--panel);border:1px solid var(--line);border-radius:999px;
+         padding:7px 15px 7px 12px;font:inherit;font-size:14px;font-weight:400;
+         color:var(--text);cursor:pointer;box-shadow:var(--shadow);transition:.14s}
+  .theme:hover{border-color:var(--accent)}
+  .theme .ico{font-size:15px;line-height:1}
+</style>
+</head>
+<body>
+<button class="theme" id="theme" type="button" title="світла / темна тема">
+  <span class="ico" id="themeIco">☾</span><span id="themeTxt">темна</span>
+</button>
+<div class="wrap">
+  <header>
+    <p class="kicker">Монтажер Hlyboki Sensy</p>
+    <h1>Завдання до відео</h1>
+    <p class="lede">Заповни, натисни «Зберегти» — і скажи Клоду, що завдання готове.
+       Порожні поля означають «на твій розсуд».</p>
+  </header>
+
+  <section>
+    <h2>Файли</h2>
+    <p class="hint"><b>Номер зліва — це порядок монтажу.</b> Стрілками ↑↓ постав відео
+      в тому порядку, в якому вони мають іти в ролику; саме так я їх і зшию.
+      Натисни «Додати відео» — відкриється звичайне вікно вибору файлів.
+       Можна обрати кілька одразу: тоді вони підуть в монтаж у тому порядку, який тут
+       виставиш. Стрілки міняють порядок, хрестик прибирає зі списку.</p>
+    <ul class="files" id="videoList"></ul>
+    <p class="empty" id="videoEmpty">Поки нічого не обрано — натисни «Додати відео»</p>
+    <div class="btns">
+      <button class="ghost" id="addVideo" type="button">Додати відео</button>
+      <button class="ghost quiet" id="reveal" type="button">Відкрити теку</button>
+    </div>
+
+    <div class="field" style="margin-top:28px">
+      <label>Куди піде</label>
+      <div class="pills" id="dest"></div>
+    </div>
+    <div class="field">
+      <label for="name">Назва завдання</label>
+      <input type="text" id="name" placeholder="за замовчуванням — імʼя першого відео">
+    </div>
+  </section>
+
+  <section>
+    <h2>Про що це</h2>
+    <p class="hint">Одне-два речення: про що відео і для кого. Звідси я розумію, які слова підсвічувати акцентом.</p>
+    <textarea id="about" placeholder="Другий день 111-денного марафону. Про те, як я все життя міряла себе грошима."></textarea>
+  </section>
+
+  <section>
+    <h2>Стиль субтитрів</h2>
+    <p class="hint">Превʼю зібране тими самими шрифтами, що й сам рендер, і одразу
+      показує обраний нижче колір. Форма й обхід обличчя однакові скрізь —
+      різниця тільки в характері літер.</p>
+    <div class="looksWrap">
+      <div class="looks" id="looks"></div>
+      <div class="navRow">
+        <button class="nav prev" id="looksPrev" type="button" title="попередні">‹</button>
+        <button class="nav next" id="looksNext" type="button" title="наступні">›</button>
+      </div>
+    </div>
+
+    <div class="field" style="margin-top:30px">
+      <label>Твій колір у субтитрах</label>
+      <p class="hint" style="margin-bottom:16px">Лягає на все кольорове в кадрі — і на
+        ключове слово, і на рукопис. Один колір на ролик. Крайній кружечок
+        відкриває піпетку, якщо треба свій відтінок.</p>
+      <div class="swatches" id="swatches">
+        <label class="own">
+          <input type="color" id="accentColor" value="#660033">
+          <span id="accentName">обрати</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="field" style="margin-top:30px">
+      <label>Що під літерами</label>
+      <p class="hint" style="margin-bottom:14px">Темний ореол тримає текст на будь-якому
+        кадрі, але трохи важчий на вигляд. Без нього субтитри чистіші — тільки
+        тоді фон має бути спокійним, інакше літери загубляться.</p>
+      <div class="pills" id="edge"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Що зробити</h2>
+    <p class="hint"><b>✅ готове</b> — я зроблю це сама, щойно ти скажеш «завдання готове».
+      <b>🔧 треба підключити</b> — цього в конвеєрі ще немає: постав галочку, і я
+      спершу допишу цей крок (це окрема робота на одну-дві години), а вже потім
+      змонтую. Тобто галочка на 🔧 — це не «не можна», а «цього разу вийде довше».</p>
+    <div class="checks" id="tasks"></div>
+  </section>
+
+  <section id="montageSection" style="display:none">
+    <h2>Монтаж</h2>
+    <p class="hint">Це зʼявилося, бо відео більше ніж одне — їх треба зшити в один ролик.</p>
+    <div class="row">
+      <div class="field">
+        <label>Характер</label>
+        <div class="pills" id="pace"></div>
+      </div>
+      <div class="field">
+        <label>Переходи</label>
+        <div class="pills" id="transition"></div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="montage">Що ще важливо про склейку</label>
+      <textarea id="montage" placeholder="Перший фрагмент — хук, його не різати. Між другим і третім потрібна пауза."></textarea>
+    </div>
+  </section>
+
+  <section>
+    <h2>Каталог вставок</h2>
+    <p class="hint">Спільна бібліотека на всі відео. Ключові слова пишуться
+       <strong>коренем, без закінчення</strong>: «фінанс» зловить і «фінансовими»,
+       і «фінанси». Коли таке слово звучить у записі, вставка зʼявляється саме там.</p>
+    <ul class="cat" id="catList"></ul>
+    <p class="empty" id="catEmpty">Каталог порожній</p>
+    <button class="ghost" id="addCat" type="button">Додати у каталог</button>
+  </section>
+
+  <section>
+    <h2>Вставки</h2>
+    <p class="hint">Картинки, шматки відео, обʼєкти, що зʼявляються поверх кадру.
+       Або поклади свої файли, або постав галочку, щоб я шукала матеріал сама.</p>
+    <ul class="files" id="assetList"></ul>
+    <p class="empty" id="assetEmpty">Своїх файлів немає</p>
+    <button class="ghost" id="addAsset" type="button">Додати свої вставки</button>
+    <div class="checks" style="margin:18px 0 4px">
+      <label class="check">
+        <input type="checkbox" id="useLibrary" checked>
+        <span class="txt">Брати з каталогу за збігом ключових слів</span>
+        <span class="mark">✅ готове</span>
+      </label>
+      <label class="check wip">
+        <input type="checkbox" id="autoStock">
+        <span class="txt">Знайти матеріал самостійно</span>
+        <span class="mark">🔧 треба підключити</span>
+      </label>
+    </div>
+    <div class="field" id="sourceField" style="margin-top:14px;display:none">
+      <label>Звідки брати</label>
+      <div class="pills" id="source"></div>
+      <p class="hint" id="sourceHint" style="margin:12px 0 0"></p>
+    </div>
+    <div class="field" style="margin-top:18px">
+      <label for="inserts">Де і що показати</label>
+      <textarea id="inserts" placeholder="На 0:12, коли кажу про 111 днів — показати цифру.&#10;Під слова про гроші — графік.&#10;У фіналі — обкладинка з логотипом."></textarea>
+    </div>
+  </section>
+
+  <section>
+    <h2>Чого не робити</h2>
+    <p class="hint">Що лишити недоторканим. Наприклад: не чіпати паузу перед фінальною фразою — вона там навмисна.</p>
+    <textarea id="dont"></textarea>
+  </section>
+
+  <section>
+    <h2>Особливе</h2>
+    <div class="field">
+      <label for="terms">Імена й терміни — написати саме так</label>
+      <textarea id="terms" placeholder="Алла Клименко, 111 днів"></textarea>
+    </div>
+    <div class="field">
+      <label for="accents">Що підсвітити акцентом</label>
+      <textarea id="accents"></textarea>
+    </div>
+    <div class="field">
+      <label for="cut">Що прибрати з тексту, навіть якщо я це сказала</label>
+      <textarea id="cut"></textarea>
+    </div>
+  </section>
+
+  <footer>
+    <button id="save">Зберегти завдання</button>
+    <span class="status" id="status"></span>
+  </footer>
+
+  <!-- Авторство. Живі посилання, щоб було видно, чий це інструмент
+       і де подивитися, як ним користуються. -->
+  <aside class="author">
+    <p class="by">Монтажер <strong>Hlyboki&nbsp;Sensy</strong> — Олена&nbsp;Дубицька</p>
+    <p class="links">
+      <a href="https://www.instagram.com/hlyboki_sensy/" target="_blank" rel="noopener">Instagram</a>
+      <a href="https://hlyboki-sensy.com" target="_blank" rel="noopener">hlyboki-sensy.com</a>
+    </p>
+    <p class="note">Користуйся вільно у своїй роботі. Перепродавати не можна.</p>
+  </aside>
+</div>
+
+<script>
+const DESTS  = ['Reels','Stories','TikTok','Shorts','LinkedIn'];
+const PACE   = ['спокійний','середній','динамічний'];
+const TRANS  = ['встик, без переходів','мʼяке затемнення','зсув','на твій розсуд'];
+const SOURCES = [
+  ['draw','намалювати в стилі бренду',
+   'Цифри, стрілки, графіки, рамки, підписи — малюємо самі тим самим рушієм, що й субтитри. Виходить у твоїх кольорах і шрифтах, ліцензія не потрібна взагалі.'],
+  ['open','відкриті бібліотеки',
+   'Openverse (800 млн зображень) і Wikimedia Commons. Усе під вільними ліцензіями, багато прозорих SVG-іконок, які можна перефарбувати в твій жовтий. Ключі не потрібні.'],
+  ['web','будь-де в інтернеті',
+   'Шукаю ширше, але показую тобі кандидатів разом із джерелом — вибираєш сама. Чужі зображення в публічному акаунті під твоїм іменем це завжди ризик, тож наосліп нічого не вставляю.'],
+];
+const LOOKS = [
+  ['podcast','Подкастовий',
+   'Те, що ти скидала. Мова йде дрібним білим, а раз на кілька секунд ключова фраза виходить великою — каліграфія твоїм кольором плюс важкий капс.'],
+  ['calligraphy','Каліграфія',
+   'Уся репліка велика: витончений Great Vibes твоїм кольором, білий капс на решті. Найжурнальніший вигляд, добре під повільну розмову.'],
+  ['editorial','Редакторський',
+   'Рукопис Comforter Brush твоїм кольором на службових словах, важкий капс на решті. Щіточний рукопис — щільніший і густіший за каліграфію.'],
+  ['classic','Класичний',
+   'Дідонівський серіф — той самий, що в заголовках цієї панелі: курсив на службових словах, капс на решті. Стримано й друковано.'],
+  ['quiet','Тихий',
+   'Одне слово в кадрі, біле, малими літерами. Нічого не кричить, увага лишається на обличчі.'],
+  ['bold','Капс-блок',
+   'Усе білим капсом, ключове слово — твоїм кольором. Без рукопису: читається найшвидше, добре тримає на світлому фоні.'],
+];
+
+const TASKS = [
+  ['subs','Субтитри',true,true,null],
+  ['speed','Пришвидшити',true,true,{key:'speedValue',val:'1.3',suffix:'×'}],
+  ['stitch','Зшити фрагменти в один ролик',false,false,null],
+  ['fillers','Вирізати слова-паразити',false,true,null],
+  ['restarts','Вирізати обмовки й перезапуски фрази',false,false,null],
+  ['pauses','Прибрати довгі паузи',false,true,{key:'pauseValue',val:'0.6',suffix:'с'}],
+  ['trim','Обрізати початок і кінець',false,true,{key:'trimValue',val:'0:00–0:00',suffix:'',wide:true}],
+  ['loudness','Вирівняти гучність голосу',false,true,null],
+  ['color','Кольорокорекція',false,true,null],
+];
+
+const $ = id => document.getElementById(id);
+
+// Тема памʼятається між запусками панелі; якщо вибору ще не було — беремо
+// системну, щоб уночі не бити по очах білим.
+const THEME_KEY = 'video-brief-theme';
+function setTheme(mode){
+  document.documentElement.setAttribute('data-theme', mode);
+  $('themeIco').textContent = mode === 'light' ? '☀' : '☾';
+  $('themeTxt').textContent = mode === 'light' ? 'світла' : 'темна';
+  try { localStorage.setItem(THEME_KEY, mode); } catch (e) {}
+}
+let saved = null;
+try { saved = localStorage.getItem(THEME_KEY); } catch (e) {}
+// ?theme=light|dark перекриває збережене — зручно, щоб подивитися обидві теми,
+// не клікаючи в інтерфейсі.
+const forced = new URLSearchParams(location.search).get('theme');
+setTheme(forced === 'light' || forced === 'dark' ? forced
+         : saved || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'));
+$('theme').addEventListener('click', () => {
+  setTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+});
+const status = $('status');
+let videos = [], assets = [];
+
+function pills(host, items, name, checked){
+  host.innerHTML = items.map(([v,l])=>`<label class="pill">
+    <input type="radio" name="${name}" value="${v}" ${v===checked?'checked':''}>
+    <span>${l}</span></label>`).join('');
+}
+pills($('dest'), DESTS.map(d=>[d,d]), 'dest', 'Reels');
+pills($('pace'), PACE.map(d=>[d,d]), 'pace', 'середній');
+pills($('transition'), TRANS.map(d=>[d,d]), 'transition', 'на твій розсуд');
+pills($('source'), SOURCES.map(([v,l])=>[v,l]), 'source', 'draw');
+
+const EDGES = [
+  ['halo','обводка й тінь'],
+  ['shadow','лише мʼяка тінь'],
+  ['none','нічого'],
+];
+
+const SWATCHES = [
+  ['#660033','сливовий'],
+  ['#C8A96A','приглушене золото'],
+  ['#3FE08A','зелений'],
+  ['#4FA6FF','синій'],
+  ['#FFFFFF','білий — без підсвітки'],
+];
+
+// Кружечки вставляємо ПЕРЕД «обрати», щоб піпетка лишалася крайньою праворуч.
+$('swatches').insertAdjacentHTML('afterbegin', SWATCHES.map(([c,nm],i)=>`<label class="sw" title="${nm}">
+  <input type="radio" name="sw" value="${c}" data-nm="${nm}" ${i===0?'checked':''}>
+  <i style="background:${c}"></i></label>`).join(''));
+
+// Смуга під написом у превʼю затемнена, як і більшість кадрів у відео, тож
+// показуємо освітлену пару кольору — рівно те, що зробить композиція під час
+// рендеру. Інакше панель обіцяла б одне, а ролик віддавав інше.
+function lightenForDark(hex){
+  const m = /^#?([0-9a-f]{6})$/i.exec((hex||'').trim());
+  if(!m) return hex;
+  const n = parseInt(m[1],16);
+  const r=((n>>16)&255)/255, g=((n>>8)&255)/255, b=(n&255)/255;
+  const mx=Math.max(r,g,b), mn=Math.min(r,g,b), l=(mx+mn)/2;
+  if(l>=0.5) return hex;                       // світлий колір і так видно
+  if(mx===mn) return hex;                      // сірий — освітлювати нічого
+  const d=mx-mn;
+  const sat=l>0.5 ? d/(2-mx-mn) : d/(mx+mn);
+  const h = mx===r ? ((g-b)/d+(g<b?6:0))/6 : mx===g ? ((b-r)/d+2)/6 : ((r-g)/d+4)/6;
+  const S=Math.min(sat,0.78), L=0.52;
+  const f=(k)=>{ const t=(k+h*12)%12, a=S*Math.min(L,1-L);
+    const v=L-a*Math.max(-1,Math.min(t-3,Math.min(9-t,1)));
+    return Math.round(v*255).toString(16).padStart(2,'0'); };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+function paintPreviews(c){
+  document.documentElement.style.setProperty('--pick', lightenForDark(c));
+}
+
+$('swatches').addEventListener('change', e => {
+  const el = e.target;
+  if (el.name !== 'sw') return;
+  $('accentColor').value = el.value;
+  $('accentName').textContent = 'обрати';
+  document.querySelector('.own').classList.remove('on');
+  paintPreviews(el.value);
+});
+// Позначку на піпетку ставимо ВІДРАЗУ по кліку, ще до вибору відтінку:
+// інакше вікно вибору вже відкрите, а обведення все ще висить на кружечку,
+// який ти щойно покинула.
+function pickOwn(){
+  document.querySelector('.own').classList.add('on');
+  document.querySelectorAll('[name=sw]').forEach(r => (r.checked = false));
+  const v = $('accentColor').value.toUpperCase();
+  $('accentName').textContent = v;
+  paintPreviews(v);
+}
+$('accentColor').addEventListener('click', pickOwn);
+$('accentColor').addEventListener('input', pickOwn);
+
+// Превʼю малюється тут, а не береться картинкою: так обраний колір видно
+// одразу, без перезнімання. Кеглі — пропорції з композиції, зменшені під картку.
+//
+// Фраза Пабло Пікассо: «Усе, що ти можеш уявити, — реальне». Кожен стиль
+// розкладає її по-своєму, і саме в цьому різниця: «Тихий» міняє по слову,
+// «Подкастовий» веде дрібний текст і раз на кілька секунд виносить фразу
+// великою. Тривалості в мілісекундах — разом близько трьох секунд.
+const SCRIPTS = {
+  podcast: [
+    ['<b class="t2 plain">усе, що</b>', 620],
+    ['<b class="t2 plain">ти можеш</b>', 620],
+    ['<b class="t1 calli big">уявити</b><b class="t2 sans big">реальне</b>', 1700],
+  ],
+  calligraphy: [
+    ['<b class="t1 calli mid">усе, що</b><b class="t2 sans mid">ти можеш</b>', 1200],
+    ['<b class="t1 calli mid">уявити —</b><b class="t2 sans mid">реальне</b>', 1700],
+  ],
+  editorial: [
+    ['<b class="t1 brush mid">усе, що</b><b class="t2 sans small">ти можеш</b>', 1200],
+    ['<b class="t1 brush mid">уявити —</b><b class="t2 sans small">реальне</b>', 1700],
+  ],
+  quiet: [
+    ['<b class="t2 plain">усе,</b>', 480],
+    ['<b class="t2 plain">що ти</b>', 480],
+    ['<b class="t2 plain">можеш</b>', 480],
+    ['<b class="t2 plain">уявити</b>', 620],
+    ['<b class="t2 plain">реальне</b>', 900],
+  ],
+  classic: [
+    ['<b class="t1 serifIt mid">усе, що</b><b class="t2 serif small">ти можеш</b>', 1200],
+    ['<b class="t1 serifIt mid">уявити —</b><b class="t2 serif small">реальне</b>', 1700],
+  ],
+  bold: [
+    ['<b class="t2 sans small">усе, що</b><b class="t2 sans small">ти можеш</b>', 1200],
+    ['<b class="t2 sans small">уявити —</b><b class="t1 sans small">реальне</b>', 1700],
+  ],
+};
+
+// Перший кадр кожного сценарію — те, що картка показує у спокої.
+const PREVIEW = Object.fromEntries(
+  Object.entries(SCRIPTS).map(([k, frames]) => [k, frames[0][0]])
+);
+
+let playTimer = null;
+// Програємо репліки по черзі тільки на обраній картці: якби рухалися всі пʼять,
+// на ряд було б боляче дивитися.
+function playPreview(look){
+  clearTimeout(playTimer);
+  // Повертаємо решту карток до першого кадру: інакше та, що грала раніше,
+  // застигає на останній репліці й показує середину фрази.
+  document.querySelectorAll('.look').forEach(card => {
+    const pv = card.querySelector('.pv');
+    const key = card.querySelector('input')?.value;
+    if (!pv || !key) return;
+    pv.classList.remove('playing');
+    pv.innerHTML = PREVIEW[key];
+  });
+  const box = document.querySelector(`.look input[value="${look}"]`)?.closest('.look')?.querySelector('.pv');
+  const frames = SCRIPTS[look];
+  if (!box || !frames) return;
+  box.classList.add('playing');
+  let i = 0;
+  const step = () => {
+    const [html, ms] = frames[i];
+    box.innerHTML = html;
+    i = (i + 1) % frames.length;
+    playTimer = setTimeout(step, ms);
+  };
+  step();
+}
+
+pills($('edge'), EDGES, 'edge', 'halo');
+document.documentElement.setAttribute('data-edge', 'halo');
+$('edge').addEventListener('change', e => {
+  if (e.target.name === 'edge') document.documentElement.setAttribute('data-edge', e.target.value);
+});
+
+// Стрілки зʼявляються тільки тоді, коли стрічка справді ширша за екран.
+function syncNav(){
+  const el = $('looks');
+  const more = el.scrollWidth - el.clientWidth - Math.round(el.scrollLeft);
+  $('looksPrev').classList.toggle('on', el.scrollLeft > 4);
+  $('looksNext').classList.toggle('on', more > 4);
+}
+function slide(dir){
+  const el = $('looks');
+  const card = el.querySelector('.look');
+  const step = card ? card.offsetWidth + 14 : 200;
+  el.scrollBy({left: dir * step * 2, behavior: 'smooth'});
+}
+$('looksPrev').addEventListener('click', () => slide(-1));
+$('looksNext').addEventListener('click', () => slide(1));
+$('looks').addEventListener('scroll', syncNav);
+window.addEventListener('resize', syncNav);
+
+paintPreviews($('accentColor').value);
+
+$('looks').innerHTML = LOOKS.map(([v,nm,ds],i)=>`<label class="look" title="${ds}">
+  <input type="radio" name="look" value="${v}" ${i===0?'checked':''}>
+  <span class="card">
+    <span class="pv">${PREVIEW[v]}</span>
+    <span class="nm">${nm}</span>
+  </span></label>`).join('');
+syncNav();
+$('looks').addEventListener('change', e => {
+  if (e.target.name === 'look') playPreview(e.target.value);
+});
+playPreview(document.querySelector('[name=look]:checked').value);
+
+function syncSource(){
+  $('sourceField').style.display = $('autoStock').checked ? 'block' : 'none';
+  const v = document.querySelector('[name=source]:checked').value;
+  $('sourceHint').textContent = (SOURCES.find(s=>s[0]===v) || [,,''])[2];
+}
+$('autoStock').addEventListener('change', syncSource);
+$('source').addEventListener('change', syncSource);
+syncSource();
+
+$('tasks').innerHTML = TASKS.map(([id,label,on,ready,extra])=>{
+  const inline = extra ? `<span class="inline"><input type="text" id="${extra.key}"
+      value="${extra.val}" style="${extra.wide?'width:150px':''}">${extra.suffix}</span>` : '';
+  return `<label class="check ${ready?'':'wip'}">
+    <input type="checkbox" id="${id}" ${on?'checked':''}>
+    <span class="txt">${label}${inline}</span>
+    <span class="mark">${ready?'✅ готове':'🔧 треба підключити'}</span>
+  </label>`;
+}).join('');
+
+function renderList(kind){
+  const arr = kind === 'video' ? videos : assets;
+  const list = $(kind === 'video' ? 'videoList' : 'assetList');
+  const empty = $(kind === 'video' ? 'videoEmpty' : 'assetEmpty');
+  empty.style.display = arr.length ? 'none' : 'block';
+  list.innerHTML = arr.map((f,i)=>`<li>
+    ${kind === 'video' ? `<span class="num">${i+1}</span>` : '<span class="num">•</span>'}
+    <span class="nm" title="${f}">${f}</span>
+    ${kind === 'video' && arr.length > 1 ? `
+      <button class="move" data-k="${kind}" data-up="${i}" title="вище">↑</button>
+      <button class="move" data-k="${kind}" data-down="${i}" title="нижче">↓</button>` : ''}
+    <button data-k="${kind}" data-del="${i}" title="прибрати">×</button>
+  </li>`).join('');
+  if (kind === 'video') {
+    $('montageSection').style.display = arr.length > 1 ? 'block' : 'none';
+    $('stitch').checked = arr.length > 1;
+  }
+}
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('button[data-k]');
+  if (!b) return;
+  const arr = b.dataset.k === 'video' ? videos : assets;
+  if (b.dataset.del !== undefined) arr.splice(+b.dataset.del, 1);
+  if (b.dataset.up !== undefined && +b.dataset.up > 0) {
+    const i = +b.dataset.up; [arr[i-1], arr[i]] = [arr[i], arr[i-1]];
+  }
+  if (b.dataset.down !== undefined && +b.dataset.down < arr.length-1) {
+    const i = +b.dataset.down; [arr[i+1], arr[i]] = [arr[i], arr[i+1]];
+  }
+  renderList(b.dataset.k);
+});
+
+async function pick(kind){
+  const btn = kind === 'video' ? $('addVideo') : $('addAsset');
+  btn.disabled = true;
+  status.textContent = 'Відкриваю вибір файлів…'; status.className = 'status';
+  try {
+    const res = await fetch('/pick', {method:'POST', headers:{'Content-Type':'application/json'},
+                                      body: JSON.stringify({kind})});
+    const out = await res.json();
+    const arr = kind === 'video' ? videos : assets;
+    let added = 0;
+    (out.added || []).forEach(f => { if (!arr.includes(f)) { arr.push(f); added++; } });
+    renderList(kind);
+    status.textContent = added ? `Додано файлів: ${added}` : 'Нічого не обрано';
+    status.className = 'status';
+  } catch (e) {
+    status.textContent = 'Не вдалося відкрити вибір файлів'; status.className = 'status err';
+  }
+  btn.disabled = false;
+}
+$('addVideo').addEventListener('click', () => pick('video'));
+$('reveal').addEventListener('click', async () => {
+  await fetch('/reveal');
+  status.textContent = 'Тека відкрита у Finder — звідти можна прибрати зайве';
+  status.className = 'status';
+});
+
+function renderCatalog(items){
+  $('catEmpty').style.display = items.length ? 'none' : 'block';
+  $('catList').innerHTML = items.map(it => `<li>
+    <div class="head">
+      <span class="nm" title="${it.name}">${it.name}</span>
+      ${it.credit ? `<span class="cr">${it.credit}</span>` : ''}
+      <button data-cat-del="${it.name}" title="прибрати з каталогу">×</button>
+    </div>
+    <p class="lbl">ключові слова, через кому</p>
+    <input data-cat-kw="${it.name}" value="${(it.keywords || []).join(', ')}">
+  </li>`).join('');
+}
+
+function loadCatalog(){
+  return fetch('/library').then(r=>r.json()).then(renderCatalog).catch(()=>{});
+}
+loadCatalog();
+
+document.addEventListener('change', async e => {
+  const inp = e.target.closest('input[data-cat-kw]');
+  if (!inp) return;
+  const res = await fetch('/library/keywords', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name: inp.dataset.catKw, keywords: inp.value})});
+  const out = await res.json();
+  status.textContent = out.ok ? `Слова збережено: ${inp.dataset.catKw}` : (out.error || 'Не зберіг');
+  status.className = out.ok ? 'status ok' : 'status err';
+});
+
+document.addEventListener('click', async e => {
+  const b = e.target.closest('button[data-cat-del]');
+  if (!b) return;
+  await fetch('/library/remove', {method:'POST', headers:{'Content-Type':'application/json'},
+                                  body: JSON.stringify({name: b.dataset.catDel})});
+  loadCatalog();
+  status.textContent = 'Прибрано з каталогу'; status.className = 'status';
+});
+
+$('addCat').addEventListener('click', async () => {
+  $('addCat').disabled = true;
+  status.textContent = 'Відкриваю вибір файлів…'; status.className = 'status';
+  try {
+    const res = await fetch('/library/add', {method:'POST', headers:{'Content-Type':'application/json'},
+                                             body: JSON.stringify({})});
+    const out = await res.json();
+    await loadCatalog();
+    status.textContent = (out.added || []).length
+      ? `Додано в каталог: ${out.added.length}. Тепер впиши ключові слова.`
+      : 'Нічого не обрано';
+    status.className = 'status';
+  } catch (e) {
+    status.textContent = 'Не вдалося відкрити вибір файлів'; status.className = 'status err';
+  }
+  $('addCat').disabled = false;
+});
+$('addAsset').addEventListener('click', () => pick('asset'));
+
+// Те, що вже лежить у папках, підтягуємо одразу — щоб не обирати наново.
+// Список навмисно порожній на старті: у теці лежить усе, що колись
+// завантажувалося, і підтягувати це в нове завдання означало б щоразу
+// вичищати чужі файли руками. Беремо тільки те, що обрано цього разу.
+renderList('video');
+renderList('asset');
+
+$('save').addEventListener('click', async () => {
+  if (!videos.length) {
+    status.textContent = 'Спершу додай хоча б одне відео'; status.className='status err'; return;
+  }
+  const val = id => ($(id) ? $(id).value.trim() : '');
+  const radio = n => document.querySelector(`[name=${n}]:checked`).value;
+  const payload = {
+    videos, assets,
+    name: val('name'),
+    brand: 'default', dest: radio('dest'), look: radio('look'), edge: radio('edge'),
+    accentColor: $('accentColor').value,
+    pace: radio('pace'), transition: radio('transition'), montage: val('montage'),
+    about: val('about'), dont: val('dont'),
+    inserts: val('inserts'), autoStock: $('autoStock').checked,
+    useLibrary: $('useLibrary').checked,
+    source: radio('source'),
+    terms: val('terms'), accents: val('accents'), cut: val('cut'),
+    tasks: TASKS.map(([id,label,,ready,extra]) => ({
+      id, label, ready, on: $(id).checked,
+      value: extra ? val(extra.key) : null,
+      suffix: extra ? extra.suffix : '',
+    })),
+  };
+  $('save').disabled = true;
+  status.textContent = 'Зберігаю…'; status.className = 'status';
+  try {
+    const res = await fetch('/save', {method:'POST', headers:{'Content-Type':'application/json'},
+                                      body: JSON.stringify(payload)});
+    const out = await res.json();
+    if (out.ok) { status.textContent = 'Збережено: ' + out.name + ' — тепер скажи Клоду'; status.className='status ok'; }
+    else { status.textContent = out.error || 'Не вдалося зберегти'; status.className='status err'; }
+  } catch (e) {
+    status.textContent = 'Панель не відповідає'; status.className='status err';
+  }
+  $('save').disabled = false;
+});
+</script>
+</body>
+</html>

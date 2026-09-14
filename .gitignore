@@ -1,0 +1,24 @@
+# Оточення й залежності — ставить install.sh
+.venv/
+engine/node_modules/
+
+# Робочі файли: чужі записи в репозиторій не потрапляють
+inbox/*
+!inbox/ЩО-СЮДИ-КЛАСТИ.md
+!inbox/assets/
+inbox/assets/*
+!inbox/assets/ЩО-СЮДИ-КЛАСТИ.md
+library/*
+!library/ЩО-СЮДИ-КЛАСТИ.md
+!library/catalog.json
+out/*
+!out/ЩО-ТУТ-БУДЕ.md
+engine/public/*
+!engine/public/.gitkeep
+engine/src/data/*
+!engine/src/data/.gitkeep
+
+# Кеш
+__pycache__/
+*.pyc
+.DS_Store
