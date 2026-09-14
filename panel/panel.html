@@ -553,39 +553,38 @@ $('accentColor').addEventListener('input', pickOwn);
 // Превʼю малюється тут, а не береться картинкою: так обраний колір видно
 // одразу, без перезнімання. Кеглі — пропорції з композиції, зменшені під картку.
 //
-// Фраза «кожне слово на місці, і жодне — не на лиці» описує сам конвеєр, тож
-// картка заразом показує, чого від нього чекати. Кожен стиль розкладає її
-// по-своєму, і саме в цьому різниця: «Тихий» міняє по слову, «Подкастовий»
-// веде дрібний текст і раз на кілька секунд виносить фразу великою.
-// Тривалості в мілісекундах — разом близько трьох секунд.
+// Фраза Пабло Пікассо: «Усе, що ти можеш уявити, — реальне». Кожен стиль
+// розкладає її по-своєму, і саме в цьому різниця: «Тихий» міняє по слову,
+// «Подкастовий» веде дрібний текст і раз на кілька секунд виносить фразу
+// великою. Тривалості в мілісекундах — разом близько трьох секунд.
 const SCRIPTS = {
   podcast: [
-    ['<b class="t2 plain">кожне</b>', 620],
-    ['<b class="t2 plain">слово</b>', 620],
-    ['<b class="t1 calli big">на місці</b><b class="t2 sans big">завжди</b>', 1700],
+    ['<b class="t2 plain">усе, що</b>', 620],
+    ['<b class="t2 plain">ти можеш</b>', 620],
+    ['<b class="t1 calli big">уявити</b><b class="t2 sans big">реальне</b>', 1700],
   ],
   calligraphy: [
-    ['<b class="t1 calli mid">кожне слово</b><b class="t2 sans mid">на місці</b>', 1200],
-    ['<b class="t1 calli mid">і жодне —</b><b class="t2 sans mid">не на лиці</b>', 1700],
+    ['<b class="t1 calli mid">усе, що</b><b class="t2 sans mid">ти можеш</b>', 1200],
+    ['<b class="t1 calli mid">уявити —</b><b class="t2 sans mid">реальне</b>', 1700],
   ],
   editorial: [
-    ['<b class="t1 brush mid">кожне слово</b><b class="t2 sans small">на місці</b>', 1200],
-    ['<b class="t1 brush mid">і жодне —</b><b class="t2 sans small">не на лиці</b>', 1700],
+    ['<b class="t1 brush mid">усе, що</b><b class="t2 sans small">ти можеш</b>', 1200],
+    ['<b class="t1 brush mid">уявити —</b><b class="t2 sans small">реальне</b>', 1700],
   ],
   quiet: [
-    ['<b class="t2 plain">кожне</b>', 480],
-    ['<b class="t2 plain">слово</b>', 480],
-    ['<b class="t2 plain">на</b>', 480],
-    ['<b class="t2 plain">місці</b>', 620],
-    ['<b class="t2 plain">завжди</b>', 900],
+    ['<b class="t2 plain">усе,</b>', 480],
+    ['<b class="t2 plain">що ти</b>', 480],
+    ['<b class="t2 plain">можеш</b>', 480],
+    ['<b class="t2 plain">уявити</b>', 620],
+    ['<b class="t2 plain">реальне</b>', 900],
   ],
   classic: [
-    ['<b class="t1 serifIt mid">кожне слово</b><b class="t2 serif small">на місці</b>', 1200],
-    ['<b class="t1 serifIt mid">і жодне —</b><b class="t2 serif small">не на лиці</b>', 1700],
+    ['<b class="t1 serifIt mid">усе, що</b><b class="t2 serif small">ти можеш</b>', 1200],
+    ['<b class="t1 serifIt mid">уявити —</b><b class="t2 serif small">реальне</b>', 1700],
   ],
   bold: [
-    ['<b class="t2 sans small">кожне слово</b><b class="t2 sans small">на місці</b>', 1200],
-    ['<b class="t2 sans small">і жодне —</b><b class="t1 sans small">не на лиці</b>', 1700],
+    ['<b class="t2 sans small">усе, що</b><b class="t2 sans small">ти можеш</b>', 1200],
+    ['<b class="t2 sans small">уявити —</b><b class="t1 sans small">реальне</b>', 1700],
   ],
 };
 
@@ -593,14 +592,13 @@ const SCRIPTS = {
 // неможливо зрозуміти, як стиль поводиться. Рух (SCRIPTS) показує, як репліки
 // змінюються насправді; статика показує типографіку цілком.
 const STILLS = {
-  podcast:     '<b class="t2 plain">кожне слово</b><b class="t1 calli big">на місці</b>',
-  calligraphy: '<b class="t1 calli mid">кожне слово</b><b class="t2 sans mid">на місці</b>',
-  editorial:   '<b class="t1 brush mid">кожне слово</b><b class="t2 sans small">на місці</b>',
-  quiet:       '<b class="t2 plain">кожне слово</b><b class="t2 plain">на місці</b>',
-  classic:     '<b class="t1 serifIt mid">кожне слово</b><b class="t2 serif small">на місці</b>',
-  bold:        '<b class="t2 sans small">кожне слово</b><b class="t1 sans small">на місці</b>',
+  podcast:     '<b class="t2 plain">усе, що ти можеш</b><b class="t1 calli big">уявити — реальне</b>',
+  calligraphy: '<b class="t1 calli mid">усе, що ти можеш</b><b class="t2 sans mid">уявити — реальне</b>',
+  editorial:   '<b class="t1 brush mid">усе, що ти можеш</b><b class="t2 sans small">уявити — реальне</b>',
+  quiet:       '<b class="t2 plain">усе, що ти можеш</b><b class="t2 plain">уявити — реальне</b>',
+  classic:     '<b class="t1 serifIt mid">усе, що ти можеш</b><b class="t2 serif small">уявити — реальне</b>',
+  bold:        '<b class="t2 sans small">усе, що ти можеш</b><b class="t1 sans small">уявити — реальне</b>',
 };
-
 const PREVIEW = Object.fromEntries(
   Object.entries(SCRIPTS).map(([k, frames]) => [k, STILLS[k] ?? frames[0][0]])
 );
