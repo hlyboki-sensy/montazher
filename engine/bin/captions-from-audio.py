@@ -366,25 +366,42 @@ def platform_zones(dest: str) -> list[dict]:
     """Сліпі зони обраного майданчика; невідома назва — без зон."""
     return [dict(z) for z in PLATFORM_ZONES.get((dest or "").strip().lower(), [])]
 
-# Приблизні метрики шрифтів із композиції — свої на кожен характер субтитрів.
-# Точність тут не критична: текст усе одно переносить рядки всередині відведеної
-# зони, тож похибка дає запас, а не обрізаний кадр.
-#   (кегль, середня ширина літери, висота рядка)
+# Метрики шрифтів із композиції — свої на кожен характер субтитрів.
+#   (кегль, СЕРЕДНЯ ширина літери, НАЙШИРША ширина літери, висота рядка)
+#
+# Ширини не на око: заміряні в браузері тими самими шрифтами й накресленнями,
+# що йдуть у рендер, на українському тексті (з урахуванням letter-spacing і
+# uppercase). Раніше тут стояли приблизні числа з приміткою «точність не
+# критична» — і це була помилка: рукописним родинам ширину недооцінювали на
+# 40-55%, тож блок «нібито влазив», а в кадрі вилітав за межі. Найгірше в
+# podcast-hero і calligraphy, де рукопис найбільший.
+#
+# Два коефіцієнти потрібні різним перевіркам:
+#   середній — для загальної ширини рядка (на кількох словах похибка гасне);
+#   найширший — для перевірки «чи влізе найдовше СЛОВО», бо саме окреме слово
+#   переносу не має й вилазить за смугу цілком.
 LOOK_METRICS = {
-    # золотий рукопис Comforter Brush + важкий капс Montserrat
-    "editorial": {"script": (104, 0.42, 122), "sans": (62, 0.72, 62), "gap": 22, "overlap": 14},
+    # щіточний рукопис Comforter Brush + важкий капс Montserrat
+    "editorial": {"script": (104, 0.59, 0.83, 122), "sans": (62, 0.75, 0.89, 62),
+                  "gap": 22, "overlap": 14},
     # тихе біле Inter малими літерами — одного розміру для всіх ролей
-    "quiet": {"script": (56, 0.56, 64), "sans": (56, 0.56, 64), "gap": 14, "overlap": -4},
-    # білий капс Montserrat із жовтим ключовим словом
-    "bold": {"script": (64, 0.72, 66), "sans": (64, 0.72, 66), "gap": 18, "overlap": 6},
+    "quiet": {"script": (56, 0.62, 0.87, 64), "sans": (56, 0.62, 0.87, 64),
+              "gap": 14, "overlap": -4},
+    # білий капс Montserrat із кольоровим ключовим словом
+    "bold": {"script": (64, 0.75, 0.89, 66), "sans": (64, 0.75, 0.89, 66),
+             "gap": 18, "overlap": 6},
     # дідонівський серіф: курсив + капс з однієї родини
-    "classic": {"script": (104, 0.44, 118), "sans": (68, 0.70, 70), "gap": 20, "overlap": 10},
+    "classic": {"script": (104, 0.61, 0.84, 118), "sans": (68, 0.78, 0.92, 70),
+                "gap": 20, "overlap": 10},
     # велика каліграфія Great Vibes + важкий капс
-    "calligraphy": {"script": (132, 0.38, 150), "sans": (72, 0.72, 74), "gap": 24, "overlap": 18},
+    "calligraphy": {"script": (132, 0.60, 0.84, 150), "sans": (72, 0.75, 0.89, 74),
+                    "gap": 24, "overlap": 18},
     # дрібне біле для потоку; ключові репліки беруть метрики "hero"
     "podcast": {
-        "script": (56, 0.56, 64), "sans": (56, 0.56, 64), "gap": 14, "overlap": -4,
-        "hero": {"script": (176, 0.38, 198), "sans": (128, 0.72, 130), "gap": 26, "overlap": 26},
+        "script": (56, 0.62, 0.87, 64), "sans": (56, 0.62, 0.87, 64),
+        "gap": 14, "overlap": -4,
+        "hero": {"script": (176, 0.60, 0.84, 198), "sans": (128, 0.75, 0.89, 130),
+                 "gap": 26, "overlap": 26},
     },
 }
 LOOKS = tuple(LOOK_METRICS)
@@ -417,10 +434,25 @@ FACE_GAP = 0.03
 SPLIT_FLOOR = 0.045
 
 
-def word_width(word: dict) -> float:
+def _face(word: dict) -> tuple:
     m = metrics()
-    size, adv, _ = m["script"] if word["style"] == "script" else m["sans"]
+    return m["script"] if word["style"] == "script" else m["sans"]
+
+
+def word_width(word: dict) -> float:
+    """Очікувана ширина слова — за середньою шириною літери."""
+    size, adv, _, _ = _face(word)
     return len(word["text"]) * size * adv
+
+
+def word_width_max(word: dict) -> float:
+    """Ширина слова в найгіршому випадку — усі літери широкі.
+
+    Саме це число вирішує, чи слово влізе у смугу: окреме слово переносу не має,
+    тож недооцінка тут означає напис, що вилітає за кадр.
+    """
+    size, _, adv_max, _ = _face(word)
+    return len(word["text"]) * size * adv_max
 
 
 def measure(lines: list[dict]) -> dict:
@@ -430,8 +462,8 @@ def measure(lines: list[dict]) -> dict:
         ws = line["words"]
         m = metrics()
         width = sum(word_width(w) for w in ws) + m["gap"] * max(len(ws) - 1, 0)
-        height = max((m["script"][2] if w["style"] == "script" else m["sans"][2]) for w in ws)
-        longest = max(word_width(w) for w in ws)
+        height = max((m["script"][3] if w["style"] == "script" else m["sans"][3]) for w in ws)
+        longest = max(word_width_max(w) for w in ws)
         rows.append({"width": width, "height": height, "longest": longest})
     return {
         "rows": rows,
@@ -451,7 +483,32 @@ def wrapped_height(block: dict, band_w_px: float, scale: float = 1.0) -> float:
 
 # На скільки дозволено зменшити текст, аби він вліз у вільну смугу. Нижче цього
 # великий напис перестає бути великим — тоді чесніше зробити його звичайним.
-SCALE_STEPS = [1.0, 0.92, 0.84, 0.76, 0.68, 0.6]
+SCALE_STEPS = [1.0, 0.92, 0.84, 0.76, 0.68, 0.6, 0.52, 0.45]
+
+
+# Менше цього напис уже не прочитати — але навіть такий дрібний напис у кадрі
+# кращий за великий, що вилітає за край.
+MIN_SCALE = 0.34
+
+
+def clamp_scale(block: dict, band: dict, scale: float) -> float:
+    """Доводить масштаб до того, за якого блок ГАРАНТОВАНО в межах смуги.
+
+    `fit_scale` перебирає готові сходинки й може повернути None — тоді раніше
+    бралася остання сходинка «на віру», і саме там напис вилітав за кадр.
+    Тут ширина рахується напряму: скільки треба, стільки й буде.
+    """
+    w_px, h_px = band["w"] * FRAME_W, band["h"] * FRAME_H
+    if block["longest_word"] > 0:
+        # Найдовше слово переносу не має — воно й задає верхню межу масштабу.
+        scale = min(scale, w_px / block["longest_word"])
+    # Далі підганяємо висоту: кількість рядків залежить від масштабу, тож
+    # зменшуємо кроками, аж поки блок не вміститься.
+    for _ in range(14):
+        if wrapped_height(block, w_px, scale) <= h_px or scale <= MIN_SCALE:
+            break
+        scale *= 0.94
+    return round(max(min(scale, 1.0), MIN_SCALE), 3)
 
 
 def fit_scale(block: dict, band: dict) -> float | None:
@@ -548,11 +605,17 @@ def split_band(band: dict, blocks: list[dict]) -> list[dict]:
 QUIET_GROUP = 4
 
 
+# Дотик межі — не перетин. Допуск у дві тисячні кадру (≈2 пікселі на 1080)
+# гасить порохню з округлення часток: без нього репліка, що закінчується рівно
+# там, де починається обличчя, вважалася написом на лиці.
+OVERLAP_EPS = 0.002
+
+
 def boxes_overlap(a: dict, b: dict) -> bool:
     """Чи перетинаються дві зони — тобто чи можна лишити репліку на місці."""
     return (
-        a["x"] < b["x"] + b["w"] and b["x"] < a["x"] + a["w"]
-        and a["y"] < b["y"] + b["h"] and b["y"] < a["y"] + a["h"]
+        a["x"] + OVERLAP_EPS < b["x"] + b["w"] and b["x"] + OVERLAP_EPS < a["x"] + a["w"]
+        and a["y"] + OVERLAP_EPS < b["y"] + b["h"] and b["y"] + OVERLAP_EPS < a["y"] + a["h"]
     )
 
 
@@ -622,9 +685,11 @@ def place(lines: list[dict], face: dict | None, index: int,
         if band is None and face:
             # 3) обличчя з зазором з'їло все безпечне поле. Тоді беремо те, що
             # лишилося над ним або під ним, хай навіть смужку, і стискаємо текст.
+            # Зазор обовʼязковий і тут: без нього смужка впиралася в саме
+            # обличчя, і напис ставав упритул до підборіддя чи чола.
             above = {"x": SAFE_L, "w": UI_X - SAFE_L, "y": SAFE_T,
-                     "h": max(face["y"] - SAFE_T, 0)}
-            below_y = min(face["y"] + face["h"], SAFE_B)
+                     "h": max(face["y"] - FACE_GAP - SAFE_T, 0)}
+            below_y = min(face["y"] + face["h"] + FACE_GAP, SAFE_B)
             below = {"x": SAFE_L, "w": UI_X - SAFE_L, "y": below_y,
                      "h": max(SAFE_B - below_y, 0)}
             # Ця смужка теж не має лізти під інтерфейс: ріжемо її перешкодами
@@ -650,9 +715,13 @@ def place(lines: list[dict], face: dict | None, index: int,
     if band["w"] * FRAME_W < block["width"] * 1.25:
         align = "center"
 
+    # Остання інстанція: хай би якою гілкою ми сюди дійшли, напис мусить бути в
+    # межах своєї смуги. Затиск рахує масштаб точно, а не сходинками.
+    scale = clamp_scale(block, band, scale)
+
     return ({"x": round(band["x"], 4), "y": round(band["y"], 4),
              "w": round(band["w"], 4), "h": round(band["h"], 4)},
-            align, fitted, round(scale, 3))
+            align, fitted, scale)
 
 
 # Скільки місця просить вставка кожного типу (частки кадру).
@@ -861,7 +930,16 @@ def build_kinetic(words: list[dict], brand: str, args, inserts: list[dict] | Non
                 continue
             same_zone = "box" in anchor and "box" in cur and boxes_overlap(anchor["box"], cur["box"])
             group_len = i - group_start
-            if group_len >= QUIET_GROUP or not same_zone:
+            # Позицію групи можна брати ТІЛЬКИ якщо вона вільна для цієї
+            # репліки: обличчя за секунду встигає зрушити, і зона, що була
+            # порожньою на початку групи, уже може бути на лиці. Це коштувало
+            # чотирьох реплік поверх обличчя в «тихому» стилі.
+            face_now = faces[i] if i < len(faces) else None
+            anchor_clear = not (face_now and "box" in anchor
+                                and boxes_overlap(anchor["box"], face_now))
+            zones_clear = not any(boxes_overlap(anchor["box"], z) for z in zones) \
+                if "box" in anchor else True
+            if group_len >= QUIET_GROUP or not same_zone or not anchor_clear or not zones_clear:
                 group_start = i
                 continue
             cur["x"], cur["y"], cur["align"] = anchor["x"], anchor["y"], anchor["align"]
@@ -897,6 +975,33 @@ def build_kinetic(words: list[dict], brand: str, args, inserts: list[dict] | Non
                   f"(перша на {blind[0]}с) — їх не буде видно під інтерфейсом")
         else:
             print("  сліпі зони чисті: жодна репліка під інтерфейс не потрапила")
+
+    # Контроль межі кадру. Репліка може бути й не на обличчі, і не під
+    # інтерфейсом, і все одно вилітати за край — якщо блок ширший за свою смугу.
+    # Тут ми переміряємо вже ГОТОВІ репліки їхнім власним масштабом.
+    over = []
+    tight = []
+    for i, cue in enumerate(out):
+        if "box" not in cue:
+            continue
+        set_hero(bool(cue.get("hero")))
+        block = measure(cue["lines"])
+        sc = cue.get("scale", 1.0)
+        w_px = cue["box"]["w"] * FRAME_W
+        h_px = cue["box"]["h"] * FRAME_H
+        if block["longest_word"] * sc > w_px + 1 or wrapped_height(block, w_px, sc) > h_px + 1:
+            over.append(cue["fromSec"])
+        elif sc < 0.55:
+            tight.append(cue["fromSec"])
+    set_hero(False)
+    if over:
+        print(f"  ! УВАГА: {len(over)} реплік не вміщуються у свою смугу "
+              f"(перша на {over[0]}с) — вони вилізуть за край")
+    else:
+        print(f"  межі кадру чисті: усі {len(out)} реплік у своїх смугах")
+    if tight:
+        print(f"  (дрібним набрано {len(tight)} реплік — місця було обмаль; "
+              f"перша на {tight[0]}с)")
 
     return {"brand": brand, "look": args.look, "accentColor": args.accent_color,
             "edge": args.edge, "cues": out, "overlay": True, "showSafeGuides": False}
