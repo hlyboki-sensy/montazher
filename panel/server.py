@@ -21,6 +21,7 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.request
 import webbrowser
 from pathlib import Path
 
@@ -43,6 +44,9 @@ ASSET_EXT = VIDEO_EXT | {".jpg", ".jpeg", ".png", ".heic", ".webp", ".gif", ".pd
 # ставала мертвою без жодного пояснення.
 IDLE_MINUTES = 240
 _last_seen = time.time()
+
+# Візитівка панелі — щоб не переплутати себе з чужим сервером на порту.
+MARKER = "montazher-panel"
 
 
 def listing(folder: Path, allowed: set[str]) -> list[str]:
@@ -258,6 +262,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         return json.loads(self.rfile.read(length).decode("utf-8"))
 
     def do_GET(self):
+        if self.path == "/whoami":
+            # Візитівка панелі: за нею застосунок відрізняє нас від чужого
+            # сервера, який випадково зайняв той самий порт.
+            body = MARKER.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if self.path == "/":
             self.path = "/panel.html"
         elif self.path == "/reveal":
@@ -356,8 +370,28 @@ def free_port(preferred: int = 8123) -> int:
     return 0
 
 
-def already_running(port: int = 8123) -> bool:
-    return port_answers(port)
+def panel_answers(port: int) -> bool:
+    """Чи це НАША панель, а не чужий сервер на тому самому порту.
+
+    Раніше перевіряли тільки «хтось відповідає» — і коли 8123 займав інший
+    локальний сервер, застосунок слухняно відкривав чужу сторінку. Тепер
+    питаємо в того, хто відповів, хто він такий.
+    """
+    try:
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{port}/whoami", timeout=0.6
+        ) as res:
+            return res.read(64).decode("utf-8", "replace").strip() == MARKER
+    except Exception:
+        return False
+
+
+def find_panel(preferred: int = 8123, span: int = 40) -> int | None:
+    """Порт, на якому вже живе наша панель, якщо вона взагалі жива."""
+    for port in range(preferred, preferred + span):
+        if port_answers(port) and panel_answers(port):
+            return port
+    return None
 
 
 def watchdog() -> None:
@@ -368,17 +402,23 @@ def watchdog() -> None:
 
 
 def main() -> None:
-    if already_running():
-        webbrowser.open("http://127.0.0.1:8123/")
+    running = find_panel()
+    if running:
+        webbrowser.open(f"http://127.0.0.1:{running}/")
         return
     port = free_port()
-    socketserver.TCPServer.allow_reuse_address = True
-    socketserver.TCPServer.allow_reuse_port = True
-    with socketserver.TCPServer(("127.0.0.1", port), Handler) as httpd:
+    # Обовʼязково потоковий. Chrome відкриває «запасні» зʼєднання наперед і
+    # нічого ними не шле; однопотоковий сервер завмирав на такому сокеті й
+    # переставав відповідати всім іншим — зокрема на /whoami.
+    Server = socketserver.ThreadingTCPServer
+    Server.allow_reuse_address = True
+    Server.allow_reuse_port = True
+    Server.daemon_threads = True
+    with Server(("127.0.0.1", port), Handler) as httpd:
         url = f"http://127.0.0.1:{port}/"
         threading.Timer(0.4, lambda: webbrowser.open(url)).start()
         threading.Thread(target=watchdog, daemon=True).start()
-        print(f"Панель завдань: {url}")
+        print(f"Панель завдань: {url}", flush=True)
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
