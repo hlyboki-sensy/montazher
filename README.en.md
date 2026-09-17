@@ -62,7 +62,10 @@ After that everything is instant and local.
 3. Open this folder in Claude Code and say the brief is ready.
 
 Claude reads the brief, transcribes the speech, lays out the captions, cleans
-the audio and drops the finished file into `out/`.
+the audio and drops the finished file into `out/`. A plain-text file with every
+caption and its timecode lands next to it — transcription gets names wrong, and
+reading the lines is the fastest way to proofread. Fix a word there, tell Claude,
+and he rebuilds the clip. At the end he opens the folder for you.
 
 Prefer no panel? The same thing in one command:
 
