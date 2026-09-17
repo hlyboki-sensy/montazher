@@ -357,12 +357,12 @@ def port_answers(port: int) -> bool:
         return False
 
 
-def free_port(preferred: int = 8123) -> int:
+def free_port(preferred: int = 8230) -> int:
     """Перший порт, на якому ніхто не відповідає.
 
     Свідомо перевіряємо звʼязком, а не спробою зайняти: після зупинки сервера
     порт ще деякий час не дає себе зайняти, хоч на ньому вже нікого немає. Через
-    це панель тікала на випадковий порт, а застосунок шукав її на 8123.
+    це панель тікала на випадковий порт, а застосунок шукав її на своєму.
     """
     for port in range(preferred, preferred + 40):
         if not port_answers(port):
@@ -373,7 +373,7 @@ def free_port(preferred: int = 8123) -> int:
 def panel_answers(port: int) -> bool:
     """Чи це НАША панель, а не чужий сервер на тому самому порту.
 
-    Раніше перевіряли тільки «хтось відповідає» — і коли 8123 займав інший
+    Раніше перевіряли тільки «хтось відповідає» — і коли порт займав інший
     локальний сервер, застосунок слухняно відкривав чужу сторінку. Тепер
     питаємо в того, хто відповів, хто він такий.
     """
@@ -386,7 +386,7 @@ def panel_answers(port: int) -> bool:
         return False
 
 
-def find_panel(preferred: int = 8123, span: int = 40) -> int | None:
+def find_panel(preferred: int = 8230, span: int = 10) -> int | None:
     """Порт, на якому вже живе наша панель, якщо вона взагалі жива."""
     for port in range(preferred, preferred + span):
         if port_answers(port) and panel_answers(port):

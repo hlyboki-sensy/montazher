@@ -601,6 +601,55 @@ def split_band(band: dict, blocks: list[dict]) -> list[dict]:
     return pieces
 
 
+# Сліпі зони майданчика, обрані для цього запуску. Їх бачить не лише розкладка
+# смуг, а й останній затиск у place(): у запасних гілках смуга береться «як є»,
+# і без затиску репліка лягає під підпис Reels, тобто зникає з кадру зовсім.
+ACTIVE_ZONES: list[dict] = []
+
+
+def clamp_to_zones(band: dict) -> dict:
+    """Підрізає смугу зверху й знизу, щоб вона не залазила під інтерфейс."""
+    top, bottom = band["y"], band["y"] + band["h"]
+    for z in ACTIVE_ZONES:
+        # Зона має накривати смугу по ширині: вузька колонка іконок збоку
+        # ріжеться інакше — від неї відступають убік, а не по висоті.
+        overlap_w = min(band["x"] + band["w"], z["x"] + z["w"]) - max(band["x"], z["x"])
+        if overlap_w < band["w"] * 0.5:
+            continue
+        z_top, z_bottom = z["y"], z["y"] + z["h"]
+        if z_bottom <= top or z_top >= bottom:
+            continue
+        if z_top <= top:
+            top = max(top, z_bottom)      # зона зверху — опускаємо верх смуги
+        else:
+            bottom = min(bottom, z_top)   # зона знизу — піднімаємо низ смуги
+    if bottom - top < 0.06:
+        # Затиск з'їв смугу дощенту. Тоді краще лишити як було: напис збоку від
+        # ідеалу видно, а напису висотою в нуль немає взагалі.
+        return band
+
+    left, right = band["x"], band["x"] + band["w"]
+    for z in ACTIVE_ZONES:
+        # А тепер навпаки: зона, що накриває смугу по висоті (колонка іконок
+        # праворуч), відрізається вбік. Безпечне поле кадру закінчується на
+        # UI_X, а колонка починається трохи раніше — цей хвостик і забираємо.
+        overlap_h = min(bottom, z["y"] + z["h"]) - max(top, z["y"])
+        if overlap_h < (bottom - top) * 0.5:
+            continue
+        z_left, z_right = z["x"], z["x"] + z["w"]
+        if z_right <= left or z_left >= right:
+            continue
+        if z_left <= left:
+            left = max(left, z_right)
+        else:
+            right = min(right, z_left)
+    if right - left < 0.3:
+        right, left = band["x"] + band["w"], band["x"]
+
+    return {**band, "x": round(left, 4), "w": round(right - left, 4),
+            "y": round(top, 4), "h": round(bottom - top, 4)}
+
+
 # Скільки реплік поспіль лишаються на одному місці у «тихому» ритмі.
 QUIET_GROUP = 4
 
@@ -710,6 +759,8 @@ def place(lines: list[dict], face: dict | None, index: int,
             band = whole   # обличчя немає взагалі — можна на весь кадр
         scale = fit_scale(block, band) or SCALE_STEPS[-1]
 
+    band = clamp_to_zones(band)
+
     align = ("center", "left", "right")[index % 3]
     # Вузькій смузі варіації не потрібні — там усе одно тісно.
     if band["w"] * FRAME_W < block["width"] * 1.25:
@@ -814,6 +865,8 @@ def build_kinetic(words: list[dict], brand: str, args, inserts: list[dict] | Non
     # Сліпі зони майданчика лежать поверх кадру весь час, тож додаються до
     # перешкод кожної репліки — нарівні з обличчям.
     zones = platform_zones(args.dest)
+    global ACTIVE_ZONES
+    ACTIVE_ZONES = zones
     if zones:
         print(f"  сліпі зони «{args.dest}»: {len(zones)}")
 
