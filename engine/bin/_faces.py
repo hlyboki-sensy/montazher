@@ -43,13 +43,19 @@ for path in sys.argv[1:]:
     res = req.results() or []
     if not res:
         out.append(None); continue
-    # Найбільше обличчя в кадрі — це той, хто говорить.
-    best = max(res, key=lambda o: o.boundingBox().size.width * o.boundingBox().size.height)
-    b = best.boundingBox()
+    # У кадрі буває двоє (інтервʼю) — берімо всі великі обличчя, а дрібні
+    # на фоні (плакати, перехожі) відкидаємо: менші за 40% площі найбільшого.
+    area = lambda o: o.boundingBox().size.width * o.boundingBox().size.height
+    top = max(area(o) for o in res)
+    faces = [o for o in res if area(o) >= 0.4 * top]
     # Vision рахує від нижнього лівого кута — перевертаємо у звичні координати.
-    out.append({"x": b.origin.x, "y": 1.0 - b.origin.y - b.size.height,
-                "w": b.size.width, "h": b.size.height,
-                "confidence": float(best.confidence())})
+    x = min(o.boundingBox().origin.x for o in faces)
+    x2 = max(o.boundingBox().origin.x + o.boundingBox().size.width for o in faces)
+    y_lo = min(o.boundingBox().origin.y for o in faces)
+    y_hi = max(o.boundingBox().origin.y + o.boundingBox().size.height for o in faces)
+    out.append({"x": x, "y": 1.0 - y_hi, "w": x2 - x, "h": y_hi - y_lo,
+                "faces": len(faces),
+                "confidence": float(max(o.confidence() for o in faces))})
 sys.stdout.write("@@JSON@@" + json.dumps(out))
 '''
 
