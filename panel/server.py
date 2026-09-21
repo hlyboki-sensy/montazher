@@ -357,14 +357,17 @@ def port_answers(port: int) -> bool:
         return False
 
 
-def free_port(preferred: int = 8230) -> int:
+def free_port(preferred: int = 8230, span: int = 10) -> int:
     """Перший порт, на якому ніхто не відповідає.
 
     Свідомо перевіряємо звʼязком, а не спробою зайняти: після зупинки сервера
     порт ще деякий час не дає себе зайняти, хоч на ньому вже нікого немає. Через
     це панель тікала на випадковий порт, а застосунок шукав її на своєму.
     """
-    for port in range(preferred, preferred + 40):
+    # Смуга та сама, що й у find_panel: якби сервер міг сісти далі, ніж туди
+    # заглядає пошук, друге натискання іконки не знайшло б живу панель і
+    # підняло б іще одну.
+    for port in range(preferred, preferred + span):
         if not port_answers(port):
             return port
     return 0
