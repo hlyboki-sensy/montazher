@@ -31,6 +31,7 @@ import _paths  # noqa: E402
 import _library  # noqa: E402
 import _cuts  # noqa: E402
 import _luma  # noqa: E402
+import _stitch  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 PROJECT = HERE.parent
@@ -890,6 +891,12 @@ def build_kinetic(words: list[dict], brand: str, args, inserts: list[dict] | Non
             cursor += len(group)
             faces.append(_faces.padded(merged) if merged else None)
         print(f"  обличчя знайдено в {found} із {len(flat)} кадрів")
+        # Нуль знахідок — це майже завжди не «у кадрі немає людини», а
+        # відсутній Vision (pyobjc ставить install.sh). Без цього
+        # попередження далі надрукується «обличчя чисте», і людина
+        # повірить перевірці, якої насправді не було.
+        if found == 0:
+            print("  ! УВАГА: обличчя не знайдено ЖОДНОГО разу — перевірки\n    обличчя не було. Якщо в кадрі є людина, запусти install.sh\n    (потрібен pyobjc) і збери ролик наново.")
 
     out = []
     placed: list[dict] = []          # уже розставлені репліки — теж перешкода
@@ -1018,7 +1025,12 @@ def build_kinetic(words: list[dict], brand: str, args, inserts: list[dict] | Non
             print(f"  ! УВАГА: {len(on_face)} реплік перетинають обличчя "
                   f"(перша на {on_face[0][0]}с)")
         else:
-            print(f"  обличчя чисте: жодна з {len(out)} реплік його не перекриває")
+            # Формулювання свідомо різне: коли обличчя не знайшлося жодного
+            # разу, «чисто» означало б лише «не було з чим порівнювати».
+            if faces and not any(faces):
+                print("  обличчя не перевірене: детектор не знайшов його ніде")
+            else:
+                print(f"  обличчя чисте: жодна з {len(out)} реплік його не перекриває")
 
     if zones:
         blind = [c["fromSec"] for c in out
@@ -1109,7 +1121,14 @@ def build_reel(words: list[dict], brand: str, args) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("source", type=Path, help="аудіо або відео файл")
+    ap.add_argument("source", type=Path, nargs="+",
+                    help="аудіо або відео файл; кілька — зшиємо в один ролик")
+    ap.add_argument("--fade", type=float, default=_stitch.BLACK_FADE,
+                    help="мʼяке затемнення на стику, с (0 — встик)")
+    ap.add_argument("--overlap", type=float, default=0.0,
+                    help="зсув: фрагменти наїжджають один на одного, с")
+    ap.add_argument("--keep-work", action="store_true", dest="keep_work",
+                    help="не прибирати проміжні частини склейки")
     ap.add_argument("--brand", default="default",
                     help="бренд із engine/src/brands (типово «default»)")
     ap.add_argument("--mode", default="kinetic", choices=["kinetic", "script", "reel"],
@@ -1118,6 +1137,11 @@ def main() -> None:
                     help="вирізати слова-паразити з короткого безпечного списку")
     ap.add_argument("--cut-pauses", type=float, default=None, dest="cut_pauses",
                     help="вирізати паузи, довші за вказану кількість секунд")
+    ap.add_argument("--cut-restarts", action="store_true", dest="cut_restarts",
+                    help="знайти обмовки й перезапуски: дослівні повтори вирізати самому, "
+                         "решту показати списком")
+    ap.add_argument("--find-restarts", action="store_true", dest="find_restarts",
+                    help="те саме, але не різати нічого — лише список")
     ap.add_argument("--cut-list", default=None, dest="cut_list",
                     help="JSON зі списком [[початок, кінець], …] — що вирізати вручну")
     ap.add_argument("--library", action="store_true",
@@ -1176,8 +1200,28 @@ def main() -> None:
     if args.max_words is None:
         args.max_words = {"quiet": 1, "podcast": 2}.get(args.look, 5)
 
-    if not args.source.exists():
-        sys.exit(f"Немає такого файлу: {args.source}")
+    sources = list(args.source)
+    for src in sources:
+        if not src.exists():
+            sys.exit(f"Немає такого файлу: {src}")
+
+    # Склейка — найперша дія, ще до транскрипції. Whisper має побачити вже
+    # фінальний таймлайн: інакше слово в зоні переходу живе у двох фрагментах
+    # водночас, і коректного відображення часу просто не існує.
+    time_map = None
+    if len(sources) > 1:
+        if args.mode != "reel":
+            sys.exit("Склейка має сенс лише в режимі reel")
+        work = sources[0].resolve().parent
+        stitched, time_map = _stitch.stitch(
+            [s.resolve() for s in sources], work,
+            fade=max(args.fade, 0.0), overlap=max(args.overlap, 0.0),
+        )
+        args.source = stitched
+        if not args.video_src:
+            args.video_src = stitched.name
+    else:
+        args.source = sources[0]
 
     print(f"→ Транскрибую {args.source.name} (модель {args.model}, мова {args.language})…")
     words = transcribe(args.source.resolve(), args.model, args.language)
@@ -1193,6 +1237,28 @@ def main() -> None:
         spans += _cuts.filler_spans(words)
     if args.cut_pauses:
         spans += _cuts.pause_spans(words, args.cut_pauses)
+    if args.cut_restarts or args.find_restarts:
+        print("→ Шукаю обмовки й перезапуски…")
+        try:
+            import _restarts  # ліниво: без numpy решта монтажера працює як працювала
+        except ModuleNotFoundError:
+            sys.exit("Для пошуку обмовок потрібен numpy: pip install numpy")
+        src = args.source.resolve()
+        res = _restarts.analyse(words, src, src.parent)
+        note = _restarts.report(res, src.parent / f"{src.stem}-обмовки.md",
+                                cutting=args.cut_restarts)
+        _restarts.dump(res, src.parent / f".{src.stem}.обмовки.json")
+        print("\n".join("  " + ln for ln in note.splitlines()))
+        if args.cut_restarts:
+            spans += res["spans"]
+    if spans and time_map:
+        # На стику завжди є провал — він там за побудовою. Без цього фільтра
+        # --cut-pauses відрізав би частину затемнення або середину переходу.
+        before = len(spans)
+        spans = _stitch.guard_seams(spans, time_map,
+                                    max(args.fade, 0.0), max(args.overlap, 0.0))
+        if before != len(spans):
+            print(f"  шви захищено: не ріжу {before - len(spans)} місць на стиках")
     if spans:
         spans = _cuts.merge_spans(spans)
         cut_file = args.source.resolve().parent / f"{args.source.stem}-cut.mp4"

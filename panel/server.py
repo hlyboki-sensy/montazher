@@ -183,7 +183,10 @@ def render(d: dict) -> str:
         mark = "x" if t["on"] else " "
         ready = "✅" if t["ready"] else "🔧"
         label = t["label"]
-        if t.get("value"):
+        # Значення показуємо лише для ввімкненого завдання. Раніше рядок міг
+        # виглядати як «- [ ] Обрізати початок і кінець — `00:02–0:00`»: час
+        # вписаний, галочки немає — і завдання саме собі суперечило.
+        if t["on"] and t.get("value"):
             label += f" — `{t['value']}{t.get('suffix', '')}`"
         out += f"- [{mark}] {ready} {label}\n"
     out += "\n"

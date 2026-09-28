@@ -62,18 +62,34 @@ def total(spans: list[tuple[float, float]]) -> float:
     return sum(b - a for a, b in spans)
 
 
+def shift_time(t: float, spans: list[tuple[float, float]]) -> float:
+    """Час точки на новій доріжці, де вирізаного ніколи не було.
+
+    Точка, що потрапила всередину вирізу, зсувається на його початок — саме це
+    дозволяє різати ВСЕРЕДИНІ слова. Так буває щоразу, коли Whisper проглинув
+    перезапуск в один токен: різ лягає в середину, і без цього межі слова
+    ставали брехнею.
+    """
+    shift = 0.0
+    for a, b in spans:
+        if b <= t:
+            shift += b - a
+        elif a < t < b:
+            shift += t - a
+    return t - shift
+
+
 def remap(words: list[dict], spans: list[tuple[float, float]]) -> list[dict]:
     """Перераховує час слів так, ніби вирізаного ніколи не було."""
     spans = merge_spans(spans)
     out = []
     for w in words:
-        # слово повністю всередині вирізу — його більше немає
-        if any(a <= w["start"] and w["end"] <= b for a, b in spans):
+        start = shift_time(w["start"], spans)
+        end = shift_time(w["end"], spans)
+        # від слова не лишилося нічого чутного — його більше немає
+        if end - start < 0.02:
             continue
-        shift = sum(b - a for a, b in spans if b <= w["start"])
-        out.append({**w,
-                    "start": round(w["start"] - shift, 3),
-                    "end": round(w["end"] - shift, 3)})
+        out.append({**w, "start": round(start, 3), "end": round(end, 3)})
     return out
 
 
