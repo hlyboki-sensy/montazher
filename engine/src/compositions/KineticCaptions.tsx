@@ -41,18 +41,13 @@ const {fontFamily: CALLI} = loadCalli('normal', {weights: ['400'], subsets: ['cy
 const {fontFamily: SERIF_IT} = loadSerif('italic', {weights: ['500'], subsets: ['cyrillic', 'latin']});
 const {fontFamily: SERIF} = loadSerif('normal', {weights: ['800'], subsets: ['cyrillic', 'latin']});
 
-// Базовий акцент пакета — глибокий сливовий. Він живе у двох станах:
-// темний (ACCENT) для світлих кадрів і освітлений (ACCENT_SOFT) для темних,
-// бо той самий колір не може читатися і на снігу, і на нічному кадрі.
-// Свій колір задається одним ключем --accent-color: світлу пару до нього
-// система порахує сама (див. lightenForDark нижче).
-const ACCENT = '#660033';
+// Палітра субтитрів — рівно два кольори на весь ролик: світлий текст і один
+// акцент. Обраний у панелі відтінок система один раз приводить до світлої пари
+// (див. lightenForDark нижче) і далі не міняє ніде: ні від кадру до кадру, ні
+// від ролі до ролі. Читабельність на світлому кадрі тримає не перефарбовування,
+// а ореол під літерами (EDGE_FILTER_LIGHT).
 const ACCENT_SOFT = '#E02985';
-const ACCENT_GRADIENT = 'linear-gradient(178deg,#8C1B57 0%,#660033 45%,#4A0025 100%)';
 const WHITE = '#FBF8F0';
-// Колір тексту на світлому кадрі: майже чорний із теплим відтінком,
-// щоб білий капс не розчинявся в небі чи білій стіні.
-const INK = '#16121A';
 
 /** #RRGGBB → [h, s, l] у частках. */
 const hexToHsl = (hex: string): [number, number, number] | null => {
@@ -99,12 +94,6 @@ const lightenForDark = (hex: string): string => {
   return hslToHex(h, Math.min(s, 0.78), 0.52);
 };
 
-/** Чи цей колір світлий — щоб зрозуміти, чи треба його темнити на світлому кадрі. */
-const isLight = (hex: string): boolean => {
-  const hsl = hexToHsl(hex);
-  return hsl ? hsl[2] > 0.6 : false;
-};
-
 // Три «характери» субтитрів. Форма й таймінги спільні — різниться лише
 // типографіка: чим кожна роль слова (script / bold / accent) себе показує.
 // Чим відділяти літери від кадру. halo — щільний темний ореол плюс тінь (те, що
@@ -119,6 +108,19 @@ const EDGE_FILTER: Record<Edge, string | undefined> = {
     'drop-shadow(0 0 4px rgba(0,0,0,0.9)) drop-shadow(0 0 14px rgba(0,0,0,0.7)) ' +
     'drop-shadow(0 8px 22px rgba(0,0,0,0.5))',
   shadow: 'drop-shadow(0 6px 18px rgba(0,0,0,0.55))',
+  none: undefined,
+};
+
+// Те саме, але для реплік, що лягли на світлу ділянку кадру — білу сорочку,
+// небо, стіну. Колір літер не міняється; глибшає лише темна підкладка під ними.
+// «Нічого» лишається нічим: якщо людина свідомо обрала чистий текст, ми не
+// підсовуємо їй ореол за спиною.
+const EDGE_FILTER_LIGHT: Record<Edge, string | undefined> = {
+  halo:
+    'drop-shadow(0 0 1px rgba(0,0,0,1)) drop-shadow(0 0 2px rgba(0,0,0,1)) ' +
+    'drop-shadow(0 0 3px rgba(0,0,0,1)) drop-shadow(0 0 6px rgba(0,0,0,0.95)) ' +
+    'drop-shadow(0 0 18px rgba(0,0,0,0.8)) drop-shadow(0 10px 26px rgba(0,0,0,0.55))',
+  shadow: 'drop-shadow(0 0 3px rgba(0,0,0,0.6)) drop-shadow(0 6px 18px rgba(0,0,0,0.65))',
   none: undefined,
 };
 
@@ -174,9 +176,11 @@ const LOOK_PRESETS: Record<
     hero?: Omit<LookPreset, 'hero'>;
   }
 > = {
-  // Наш редакторський: золотий рукопис + важкий капс + жовтий акцент.
+  // Наш редакторський: кольоровий рукопис + важкий білий капс + той самий колір
+  // на акценті. Рукопис суцільного кольору, не градієнтом: градієнт давав у кадрі
+  // другий відтінок того ж акценту.
   editorial: {
-    script: {font: SCRIPT, weight: 400, size: 104, upper: false, tracking: 'normal', color: 'transparent', gradient: ACCENT_GRADIENT, tinted: true},
+    script: {font: SCRIPT, weight: 400, size: 104, upper: false, tracking: 'normal', color: ACCENT_SOFT, tinted: true},
     bold: {font: SANS, weight: 800, size: 62, upper: true, tracking: '0.01em', color: WHITE},
     accent: {font: SANS, weight: 800, size: 62, upper: true, tracking: '0.01em', color: ACCENT_SOFT, tinted: true},
     gap: '0 22px',
@@ -459,31 +463,18 @@ const Cue: React.FC<{cue: z.infer<typeof cueSchema>; look: Look; accentColor?: s
             const isScript = word.style === 'script';
             const isAccent = word.style === 'accent';
             const preseted = preset[word.style] ?? preset.bold;
-            // Обраний колір лягає на ВСІ кольорові ролі стилю - і на акцент, і
-            // на рукопис. Інакше в кадрі співіснували б два різні відтінки: один
-            // із градієнта, другий із акценту.
+            // Обраний колір лягає на ВСІ кольорові ролі стилю — і на акцент, і
+            // на рукопис. Інакше в кадрі співіснували б два різні відтінки.
             //
-            // Далі — головне правило читабельності: той самий колір не може
-            // працювати і на світлому кадрі, і на темному. Тому на темному
-            // акцент світлішає, а на світлому — білий текст темніє.
-            const tint = accentColor
-              ? darkFrame
-                ? lightenForDark(accentColor)
-                : accentColor
-              : undefined;
-            let face: Face =
+            // Відтінок рахується РАЗ і не залежить від того, на що саме лягла
+            // репліка: у ролику рівно два кольори — світлий текст і один акцент.
+            // Раніше кадр під написом вирішував колір сам, і на світлій ділянці
+            // (біла сорочка, небо, стіна) білий капс ставав майже чорним, а
+            // акцент темнішав — виходило чотири кольори замість двох. Тепер
+            // яскравість кадру міняє лише щільність ореолу під літерами.
+            const tint = accentColor ? lightenForDark(accentColor) : undefined;
+            const face: Face =
               preseted.tinted && tint ? {...preseted, color: tint, gradient: undefined} : preseted;
-            if (!darkFrame) {
-              if (face.gradient) {
-                // Градієнт розрахований на темне тло — на світлому беремо
-                // суцільний темний акцент.
-                face = {...face, gradient: undefined, color: accentColor ?? ACCENT};
-              } else if (face.tinted && !accentColor) {
-                face = {...face, color: ACCENT};
-              } else if (!face.tinted && isLight(face.color)) {
-                face = {...face, color: INK};
-              }
-            }
             // Пульс лише там, де акцент справді виділяється кольором.
             const pulse =
               isAccent && face.color !== preset.bold.color
@@ -501,7 +492,7 @@ const Cue: React.FC<{cue: z.infer<typeof cueSchema>; look: Look; accentColor?: s
               lineHeight: 1,
               textTransform: face.upper ? 'uppercase' : 'none',
               letterSpacing: face.tracking,
-              filter: EDGE_FILTER[edge],
+              filter: (darkFrame ? EDGE_FILTER : EDGE_FILTER_LIGHT)[edge],
               paddingBottom: isScript && face.gradient ? '0.12em' : 0,
             };
 

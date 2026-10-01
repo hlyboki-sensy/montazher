@@ -961,8 +961,9 @@ def build_kinetic(words: list[dict], brand: str, args, inserts: list[dict] | Non
         out.append(entry)
     set_hero(False)
 
-    # Якою парою кольорів писати — вирішує сам кадр. Міряємо яскравість там, де
-    # напис реально стоятиме, у середині його життя.
+    # Наскільки щільний ореол під літерами — вирішує сам кадр. Міряємо яскравість
+    # там, де напис реально стоятиме, у середині його життя. КОЛІР від цього не
+    # залежить: у ролику рівно два кольори на весь таймлайн.
     if _luma.has_video(args.source.resolve()):
         measured = 0
         for entry in out:
@@ -973,7 +974,8 @@ def build_kinetic(words: list[dict], brand: str, args, inserts: list[dict] | Non
                 measured += 1
         if measured:
             light = sum(1 for e in out if e.get("dark") is False)
-            print(f"  яскравість кадру: {measured} реплік виміряно, з них на світлому — {light}")
+            print(f"  яскравість кадру: {measured} реплік виміряно, з них на світлому — {light}"
+                  " (там щільніший ореол; колір той самий)")
 
     if args.look in ("quiet", "podcast"):
         # Слова не мають стрибати по кадру поодинці: тримаємо позицію групою

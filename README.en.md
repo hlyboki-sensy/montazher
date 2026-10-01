@@ -26,10 +26,12 @@ the Stories timeline at the top.
 | `quiet` | one word on screen, white, lowercase | when attention must stay on the face |
 | `bold` | all white caps, key word in colour | when it just has to be read fast |
 
-**Colour that saves itself.** You pick one accent colour. The script measures
-frame brightness exactly where the text will sit, then uses a lightened pair of
-that colour on dark frames and the dark one on bright frames. No single colour
-can stay readable on both snow and a night shot.
+**Two colours per reel, never more.** Light text and one accent you pick. The
+colour never changes from cue to cue: on a bright patch — a white shirt, the
+sky, a wall — only the dark halo under the letters gets denser. The script
+measures brightness exactly where the text will sit, and that measurement drives
+the halo, not the colour. Recolouring per cue is what used to leave one reel
+with black captions in one shot and white in the next.
 
 **Recording cleanup.** Trim head and tail, cut long pauses and filler words,
 speed up without chipmunking the voice, normalise loudness, gentle colour
@@ -89,7 +91,8 @@ colours and fonts, register it in `engine/src/brands/index.ts`. It shows up in
 every composition's brand dropdown right away.
 
 The caption colour is separate — `--accent-color`, or the swatch in the panel.
-The light counterpart for dark frames is computed for you.
+A dark shade is lightened once into a readable one — exactly what the panel
+preview shows — and then held unchanged for the whole reel.
 
 ## What it can't do yet
 
